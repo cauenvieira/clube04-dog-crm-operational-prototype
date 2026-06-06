@@ -70,7 +70,7 @@ export function nextActionForResultado(resultado: ResultadoInteracao, tentativas
       ? "revisar_lideranca"
       : "aguardando_resposta";
   }
-  if (resultado === "continuar") return "fazer_follow_up";
+  if (resultado === "continuar" || resultado === "follow_up_agendado") return "fazer_follow_up";
   if (resultado === "agendamento") return "registrar_agendamento";
   if (resultado === "analise_lideranca") return "revisar_lideranca";
   return "sem_proxima_acao";
@@ -80,6 +80,7 @@ export function resultadoParaStatusOperacional(r: ResultadoInteracao, prev: Stat
   const config = loadConfig();
   switch (r) {
     case "continuar": return "em_atendimento";
+    case "follow_up_agendado": return "follow_up";
     case "agendamento": return "agendado";
     case "sem_resposta": return tentativas >= config.tentativas.limiteSemResposta && config.tentativas.enviarParaLiderancaNoLimite ? "analise_lideranca" : "aguardando_resposta";
     case "convertido": return "convertido";
