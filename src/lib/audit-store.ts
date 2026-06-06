@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Papel } from "./auth-store";
 
 export type AuditAction =
@@ -55,9 +56,8 @@ export function addAudit(entry: Omit<AuditEntry, "id" | "at">) {
 }
 
 export function useAudit() {
-  const React = require("react") as typeof import("react");
-  const [entries, setEntries] = React.useState<AuditEntry[]>(() => loadAudit());
-  React.useEffect(() => {
+  const [entries, setEntries] = useState<AuditEntry[]>(() => loadAudit());
+  useEffect(() => {
     const listener = () => setEntries([...loadAudit()]);
     listeners.add(listener);
     listener();
