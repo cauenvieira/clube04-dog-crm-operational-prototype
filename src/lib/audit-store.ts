@@ -1,17 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Papel } from "./auth-store";
 
-export type AuditAction =
-  | "login"
-  | "logout"
-  | "lead_criado"
-  | "lead_editado"
-  | "interacao_registrada"
-  | "sem_resposta"
-  | "lead_reatribuido"
-  | "config_alterada"
-  | "usuario_alterado"
-  | "dados_reiniciados";
+export type AuditAction = "login" | "logout" | "lead_criado" | "lead_editado" | "interacao_registrada" | "sem_resposta" | "lead_reatribuido" | "config_alterada" | "usuario_alterado" | "dados_reiniciados";
 
 export interface AuditEntry {
   id: string;
@@ -29,27 +19,17 @@ export interface AuditEntry {
 const AUDIT_KEY = "clube04_operational_audit_v1";
 let cached: AuditEntry[] | null = null;
 let listeners = new Set<() => void>();
-
 function emit() { listeners.forEach((listener) => listener()); }
 
 export function loadAudit(): AuditEntry[] {
   if (typeof window === "undefined") return [];
   if (cached) return cached;
-  try {
-    const raw = localStorage.getItem(AUDIT_KEY);
-    cached = raw ? JSON.parse(raw) : [];
-  } catch {
-    cached = [];
-  }
+  try { cached = JSON.parse(localStorage.getItem(AUDIT_KEY) ?? "[]"); } catch { cached = []; }
   return cached ?? [];
 }
 
 export function addAudit(entry: Omit<AuditEntry, "id" | "at">) {
-  const next: AuditEntry = {
-    id: `A${Date.now()}${Math.floor(Math.random() * 1000)}`,
-    at: new Date().toISOString(),
-    ...entry,
-  };
+  const next: AuditEntry = { id: `A${Date.now()}${Math.floor(Math.random() * 1000)}`, at: new Date().toISOString(), ...entry };
   cached = [next, ...loadAudit()].slice(0, 500);
   if (typeof window !== "undefined") localStorage.setItem(AUDIT_KEY, JSON.stringify(cached));
   emit();

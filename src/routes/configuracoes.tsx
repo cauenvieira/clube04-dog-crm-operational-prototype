@@ -1,88 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PageHeader, MockBadge, FuturoBadge } from "@/components/layout/AppLayout";
+import { PageHeader, MockBadge } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { ATENDENTES, ORIGENS, resetLeads } from "@/lib/mock-data";
+import { useOperationalConfig, DEFAULT_CONFIG, resetConfigMock } from "@/lib/operational-config";
+import { resetLeads } from "@/lib/mock-data";
+import { resetAudit } from "@/lib/audit-store";
+import { resetAuthMock, useAuth } from "@/lib/auth-store";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/configuracoes")({
-  head: () => ({ meta: [{ title: "Configurações · CRM Clube04" }] }),
-  component: Configuracoes,
-});
-
-function Section({ title, children, futuro = false }: { title: string; children: React.ReactNode; futuro?: boolean }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <div className="flex items-center gap-2 mb-4"><h3 className="font-display font-semibold">{title}</h3>{futuro && <FuturoBadge />}</div>
-      <div className="space-y-3 text-sm">{children}</div>
-    </div>
-  );
-}
-
-function Configuracoes() {
-  return (
-    <>
-      <PageHeader title="Configurações" subtitle="Configurações da unidade e do CRM." badge={<MockBadge />} />
-      <div className="px-8 py-6 grid md:grid-cols-2 gap-4">
-        <Section title="Modo demo">
-          <div className="flex items-center justify-between"><Label>Usar dados mockados</Label><Switch defaultChecked /></div>
-          <div className="flex items-center justify-between"><Label>Persistir em localStorage</Label><Switch defaultChecked /></div>
-          <Button variant="outline" size="sm" onClick={() => { resetLeads(); toast.success("Dados reiniciados. Recarregue a página."); }}>
-            Reiniciar dados mockados
-          </Button>
-        </Section>
-
-        <Section title="API futura" futuro>
-          <div><Label className="text-xs">API base URL</Label><Input placeholder="https://api.clube04.com.br/crm" className="mt-1" /></div>
-          <div><Label className="text-xs">API key</Label><Input type="password" defaultValue="••••••••••••" className="mt-1" /></div>
-        </Section>
-
-        <Section title="Usuários e atendentes">
-          <div className="space-y-2">
-            {ATENDENTES.map((a) => (
-              <div key={a} className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-semibold">{a[0]}</div>
-                  <span>{a}</span>
-                </div>
-                <span className="text-[11px] text-muted-foreground">Atendente</span>
-              </div>
-            ))}
-          </div>
-        </Section>
-
-        <Section title="Origens de lead">
-          <div className="flex flex-wrap gap-1.5">
-            {ORIGENS.map((o) => <span key={o} className="text-xs px-2.5 py-1 rounded-md bg-muted">{o}</span>)}
-          </div>
-        </Section>
-
-        <Section title="Regras de tentativas">
-          <div className="flex items-center justify-between"><Label>Limite de tentativas sem resposta</Label><Input defaultValue="12" className="w-20 h-8" /></div>
-          <div className="flex items-center justify-between"><Label>Vencidos recentes (dias)</Label><span className="text-muted-foreground text-xs">1 a 7</span></div>
-          <div className="flex items-center justify-between"><Label>Backlog (dias)</Label><span className="text-muted-foreground text-xs">+ de 7</span></div>
-        </Section>
-
-        <Section title="Status e motivos">
-          <div className="text-muted-foreground text-xs">Status e motivos são configuráveis em versão futura.</div>
-        </Section>
-
-        <Section title="Exportação">
-          <div className="flex items-center justify-between"><Label>Separador</Label><span className="text-xs text-muted-foreground">Ponto-e-vírgula (;)</span></div>
-          <div className="flex items-center justify-between"><Label>Codificação</Label><span className="text-xs text-muted-foreground">UTF-8 BOM</span></div>
-        </Section>
-
-        <Section title="Integrações futuras" futuro>
-          <div className="text-muted-foreground text-xs">WhatsApp Business, Google Calendar, ERP da unidade, n8n, Meta Ads.</div>
-        </Section>
-
-        <div className="md:col-span-2 flex gap-2 justify-end">
-          <Button variant="outline">Limpar</Button>
-          <Button>Salvar</Button>
-        </div>
-      </div>
-    </>
-  );
-}
+export const Route = createFileRoute("/configuracoes")({ head: () => ({ meta: [{ title: "Configurações Operacionais · CRM Clube04" }] }), component: Configuracoes });
+function Section({title,children}:{title:string;children:React.ReactNode}){return <div className="rounded-xl border border-border bg-card p-5"><h3 className="font-display font-semibold mb-4">{title}</h3><div className="space-y-3 text-sm">{children}</div></div>}
+function Configuracoes(){ const {config,setConfig}=useOperationalConfig(); const {currentUser,can}=useAuth(); const editable=can("config:editar"); const save=()=>{setConfig(config,currentUser?.nome,currentUser?.papel); toast.success("Configurações salvas");}; const updateList=(key:"origens", value:string)=>setConfig({...config,[key]:value.split("\n").map(x=>x.trim()).filter(Boolean)},currentUser?.nome,currentUser?.papel); return <><PageHeader title="Configurações Operacionais" subtitle="Parâmetros simples para testar regras sem recompilar o mock." badge={<MockBadge/>}/><div className="px-8 py-6 grid md:grid-cols-2 gap-4"><Section title="Unidade"><div><Label className="text-xs">Nome</Label><Input disabled={!editable} value={config.unidade.nome} onChange={(e)=>setConfig({...config,unidade:{...config.unidade,nome:e.target.value}},currentUser?.nome,currentUser?.papel)} className="mt-1"/></div><div><Label className="text-xs">WhatsApp principal</Label><Input disabled={!editable} value={config.unidade.whatsappPrincipal} onChange={(e)=>setConfig({...config,unidade:{...config.unidade,whatsappPrincipal:e.target.value}},currentUser?.nome,currentUser?.papel)} className="mt-1"/></div></Section><Section title="Tentativas e prazos"><div className="flex items-center justify-between gap-3"><Label>Limite sem resposta</Label><Input disabled={!editable} type="number" className="w-24" value={config.tentativas.limiteSemResposta} onChange={(e)=>setConfig({...config,tentativas:{...config.tentativas,limiteSemResposta:Number(e.target.value)}},currentUser?.nome,currentUser?.papel)}/></div><div className="flex items-center justify-between gap-3"><Label>Dias para backlog</Label><Input disabled={!editable} type="number" className="w-24" value={config.tentativas.backlogDias} onChange={(e)=>setConfig({...config,tentativas:{...config.tentativas,backlogDias:Number(e.target.value)}},currentUser?.nome,currentUser?.papel)}/></div><div className="flex items-center justify-between"><Label>Enviar ao limite para liderança</Label><Switch disabled={!editable} checked={config.tentativas.enviarParaLiderancaNoLimite} onCheckedChange={(v)=>setConfig({...config,tentativas:{...config.tentativas,enviarParaLiderancaNoLimite:v}},currentUser?.nome,currentUser?.papel)}/></div></Section><Section title="Origens"><Textarea disabled={!editable} rows={8} value={config.origens.join("\n")} onChange={(e)=>updateList("origens",e.target.value)}/></Section><Section title="Mensagens padrão"><div><Label className="text-xs">Primeiro contato</Label><Textarea disabled={!editable} rows={3} value={config.mensagens.primeiroContato} onChange={(e)=>setConfig({...config,mensagens:{...config.mensagens,primeiroContato:e.target.value}},currentUser?.nome,currentUser?.papel)} className="mt-1"/></div><div><Label className="text-xs">Follow-up</Label><Textarea disabled={!editable} rows={3} value={config.mensagens.followUp} onChange={(e)=>setConfig({...config,mensagens:{...config.mensagens,followUp:e.target.value}},currentUser?.nome,currentUser?.papel)} className="mt-1"/></div></Section><div className="md:col-span-2 flex flex-wrap gap-2 justify-end"><Button variant="outline" onClick={()=>{resetLeads();resetAudit();toast.success("Leads e auditoria reiniciados")}}>Reiniciar dados operacionais</Button>{editable&&<Button variant="outline" onClick={()=>{resetConfigMock();setConfig(DEFAULT_CONFIG,currentUser?.nome,currentUser?.papel);toast.success("Configurações restauradas")}}>Restaurar configurações</Button>}<Button onClick={save} disabled={!editable}>Salvar</Button></div></div></>; }

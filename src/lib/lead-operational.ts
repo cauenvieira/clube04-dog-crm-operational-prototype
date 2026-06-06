@@ -1,14 +1,7 @@
 import { daysDiff, type Lead, type ResultadoInteracao, type StatusOperacional } from "./mock-data";
 import { loadConfig } from "./operational-config";
 
-export type ProximaAcao =
-  | "novo_lead"
-  | "retomar_atendimento"
-  | "fazer_follow_up"
-  | "aguardando_resposta"
-  | "registrar_agendamento"
-  | "revisar_lideranca"
-  | "sem_proxima_acao";
+export type ProximaAcao = "novo_lead" | "retomar_atendimento" | "fazer_follow_up" | "aguardando_resposta" | "registrar_agendamento" | "revisar_lideranca" | "sem_proxima_acao";
 
 export const PROXIMA_ACAO_LABEL: Record<ProximaAcao, string> = {
   novo_lead: "Novo lead",
@@ -30,15 +23,12 @@ export const PROXIMA_ACAO_COLORS: Record<ProximaAcao, string> = {
   sem_proxima_acao: "bg-muted text-muted-foreground border-border",
 };
 
-export const RESULTADOS_TERMINAIS: ResultadoInteracao[] = ["convertido", "perdido", "desqualificado", "nutricao"];
-
 export function isStatusTerminal(status: StatusOperacional): boolean {
   return ["convertido", "perdido", "desqualificado", "nutricao"].includes(status);
 }
 
 export function getLeadProximaAcao(lead: Lead): ProximaAcao {
-  const explicit = (lead as Lead & { proximaAcao?: ProximaAcao }).proximaAcao;
-  if (explicit) return explicit;
+  if (lead.proximaAcao) return lead.proximaAcao;
   if (lead.status === "analise_lideranca") return "revisar_lideranca";
   if (isStatusTerminal(lead.status)) return "sem_proxima_acao";
   if (lead.status === "agendado") return "registrar_agendamento";
@@ -46,8 +36,8 @@ export function getLeadProximaAcao(lead: Lead): ProximaAcao {
   if (!lead.dataProximoContato) return "retomar_atendimento";
   const diff = daysDiff(lead.dataProximoContato);
   if (diff !== null && diff < 0) return "retomar_atendimento";
-  if (diff === 0) return lead.status === "aguardando_resposta" ? "aguardando_resposta" : "fazer_follow_up";
-  return lead.status === "aguardando_resposta" ? "aguardando_resposta" : "fazer_follow_up";
+  if (lead.status === "aguardando_resposta") return "aguardando_resposta";
+  return "fazer_follow_up";
 }
 
 export function classifyUrgencia(lead: Lead): { label: string; tipo: "hoje" | "vencido" | "backlog" | "sem_data" | "futuro" | "sem_acao" } {
@@ -65,11 +55,7 @@ export function classifyUrgencia(lead: Lead): { label: string; tipo: "hoje" | "v
 
 export function nextActionForResultado(resultado: ResultadoInteracao, tentativas: number): ProximaAcao {
   const config = loadConfig();
-  if (resultado === "sem_resposta") {
-    return tentativas >= config.tentativas.limiteSemResposta && config.tentativas.enviarParaLiderancaNoLimite
-      ? "revisar_lideranca"
-      : "aguardando_resposta";
-  }
+  if (resultado === "sem_resposta") return tentativas >= config.tentativas.limiteSemResposta && config.tentativas.enviarParaLiderancaNoLimite ? "revisar_lideranca" : "aguardando_resposta";
   if (resultado === "continuar" || resultado === "follow_up_agendado") return "fazer_follow_up";
   if (resultado === "agendamento") return "registrar_agendamento";
   if (resultado === "analise_lideranca") return "revisar_lideranca";

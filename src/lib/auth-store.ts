@@ -54,99 +54,32 @@ export const PERMISSAO_LABEL: Record<Permissao, string> = {
 export const PERMISSOES: Permissao[] = Object.keys(PERMISSAO_LABEL) as Permissao[];
 
 const PAPEL_PERMISSOES: Record<Papel, Permissao[]> = {
-  atendente: [
-    "leads:ver",
-    "leads:criar",
-    "leads:editar",
-    "leads:registrar_interacao",
-  ],
-  lider: [
-    "leads:ver",
-    "leads:criar",
-    "leads:editar",
-    "leads:registrar_interacao",
-    "leads:concluir",
-    "leads:reatribuir",
-    "lideranca:revisar",
-    "base:exportar",
-    "mensagens:gerenciar",
-    "config:ver",
-  ],
-  administrador: [
-    "leads:ver",
-    "leads:criar",
-    "leads:editar",
-    "leads:registrar_interacao",
-    "leads:concluir",
-    "leads:reatribuir",
-    "lideranca:revisar",
-    "base:exportar",
-    "mensagens:gerenciar",
-    "config:ver",
-    "config:editar",
-    "usuarios:gerenciar",
-    "auditoria:ver",
-  ],
+  atendente: ["leads:ver", "leads:criar", "leads:editar", "leads:registrar_interacao"],
+  lider: ["leads:ver", "leads:criar", "leads:editar", "leads:registrar_interacao", "leads:concluir", "leads:reatribuir", "lideranca:revisar", "base:exportar", "mensagens:gerenciar", "config:ver"],
+  administrador: ["leads:ver", "leads:criar", "leads:editar", "leads:registrar_interacao", "leads:concluir", "leads:reatribuir", "lideranca:revisar", "base:exportar", "mensagens:gerenciar", "config:ver", "config:editar", "usuarios:gerenciar", "auditoria:ver"],
 };
 
 const DEFAULT_USERS: AppUser[] = [
-  {
-    id: "u-admin",
-    nome: "Cauê",
-    email: "admin@clube04.local",
-    senha: "123456",
-    papel: "administrador",
-    ativo: true,
-    apareceComoAtendente: true,
-    permissoesExtra: [],
-    permissoesNegadas: [],
-  },
-  {
-    id: "u-lider",
-    nome: "Etiene",
-    email: "lider@clube04.local",
-    senha: "123456",
-    papel: "lider",
-    ativo: true,
-    apareceComoAtendente: true,
-    permissoesExtra: [],
-    permissoesNegadas: [],
-  },
-  {
-    id: "u-atendente",
-    nome: "Atendente WhatsApp",
-    email: "atendente@clube04.local",
-    senha: "123456",
-    papel: "atendente",
-    ativo: true,
-    apareceComoAtendente: true,
-    permissoesExtra: [],
-    permissoesNegadas: [],
-  },
+  { id: "u-admin", nome: "Cauê", email: "admin@clube04.local", senha: "123456", papel: "administrador", ativo: true, apareceComoAtendente: true, permissoesExtra: [], permissoesNegadas: [] },
+  { id: "u-lider", nome: "Etiene", email: "lider@clube04.local", senha: "123456", papel: "lider", ativo: true, apareceComoAtendente: true, permissoesExtra: [], permissoesNegadas: [] },
+  { id: "u-atendente", nome: "Atendente WhatsApp", email: "atendente@clube04.local", senha: "123456", papel: "atendente", ativo: true, apareceComoAtendente: true, permissoesExtra: [], permissoesNegadas: [] },
 ];
 
 const USERS_KEY = "clube04_operational_users_v1";
 const SESSION_KEY = "clube04_operational_session_v1";
-
 let usersCache: AppUser[] | null = null;
-let sessionUserId: string | null = null;
 let listeners = new Set<() => void>();
-
 function emit() { listeners.forEach((listener) => listener()); }
-
-function safeParseUsers(raw: string | null): AppUser[] | null {
-  if (!raw) return null;
-  try { return JSON.parse(raw) as AppUser[]; } catch { return null; }
-}
 
 export function loadUsers(): AppUser[] {
   if (typeof window === "undefined") return DEFAULT_USERS;
   if (usersCache) return usersCache;
-  const stored = safeParseUsers(localStorage.getItem(USERS_KEY));
-  usersCache = stored?.length ? stored : DEFAULT_USERS;
+  try {
+    const raw = localStorage.getItem(USERS_KEY);
+    usersCache = raw ? JSON.parse(raw) : DEFAULT_USERS;
+  } catch { usersCache = DEFAULT_USERS; }
   localStorage.setItem(USERS_KEY, JSON.stringify(usersCache));
-  sessionUserId = localStorage.getItem(SESSION_KEY);
-  return usersCache;
+  return usersCache ?? DEFAULT_USERS;
 }
 
 export function saveUsers(users: AppUser[]) {
@@ -163,9 +96,9 @@ export function getEffectivePermissions(user: AppUser): Permissao[] {
 }
 
 function getCurrentUser(): AppUser | null {
-  const users = loadUsers();
-  if (typeof window !== "undefined") sessionUserId = localStorage.getItem(SESSION_KEY);
-  return users.find((u) => u.id === sessionUserId && u.ativo) ?? null;
+  if (typeof window === "undefined") return null;
+  const sessionUserId = localStorage.getItem(SESSION_KEY);
+  return loadUsers().find((u) => u.id === sessionUserId && u.ativo) ?? null;
 }
 
 export function useAuth() {
@@ -186,14 +119,12 @@ export function useAuth() {
     const user = loadUsers().find((u) => u.email.toLowerCase() === email.toLowerCase());
     if (!user || user.senha !== senha) return { ok: false, message: "Usuário ou senha inválidos." };
     if (!user.ativo) return { ok: false, message: "Usuário inativo." };
-    sessionUserId = user.id;
-    if (typeof window !== "undefined") localStorage.setItem(SESSION_KEY, user.id);
+    localStorage.setItem(SESSION_KEY, user.id);
     emit();
     return { ok: true };
   }, []);
 
   const logout = useCallback(() => {
-    sessionUserId = null;
     if (typeof window !== "undefined") localStorage.removeItem(SESSION_KEY);
     emit();
   }, []);
@@ -202,23 +133,18 @@ export function useAuth() {
     const user = getCurrentUser();
     if (!user) return false;
     return getEffectivePermissions(user).includes(permissao);
-  }, [currentUser?.id, currentUser?.papel, currentUser?.permissoesExtra, currentUser?.permissoesNegadas]);
+  }, []);
 
   const updateUser = useCallback((userId: string, updater: (user: AppUser) => AppUser) => {
     saveUsers(loadUsers().map((u) => u.id === userId ? updater(u) : u));
   }, []);
 
-  const atendentesAtivos = useMemo(
-    () => users.filter((u) => u.ativo && u.apareceComoAtendente).map((u) => u.nome),
-    [users],
-  );
-
+  const atendentesAtivos = useMemo(() => users.filter((u) => u.ativo && u.apareceComoAtendente).map((u) => u.nome), [users]);
   return { users, currentUser, login, logout, can, updateUser, atendentesAtivos };
 }
 
 export function resetAuthMock() {
   usersCache = DEFAULT_USERS;
-  sessionUserId = null;
   if (typeof window !== "undefined") {
     localStorage.setItem(USERS_KEY, JSON.stringify(DEFAULT_USERS));
     localStorage.removeItem(SESSION_KEY);
